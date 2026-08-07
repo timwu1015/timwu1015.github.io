@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>God of War RPG — Tim Wu</title>
+  <meta name="description" content="A turn-based battle game built with vanilla JavaScript. Modernized from a 2018 jQuery bootcamp project.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="arena">
+    <header class="game-header">
+      <h1>God of War <span>RPG</span></h1>
+      <p class="tagline">Choose your god. Defeat all three enemies.</p>
+    </header>
+
+    <!-- Roster: pick your god, then pick enemies -->
+    <section id="roster-section">
+      <h2 id="roster-prompt">Choose your god</h2>
+      <div id="roster" class="card-row"></div>
+    </section>
+
+    <!-- Battle arena -->
+    <section id="battle-section" class="hidden">
+      <div class="fighters">
+        <div class="fighter" id="player-slot">
+          <h3>Your God</h3>
+          <div class="fighter-card" id="player-card"></div>
+          <div class="hp-bar"><div class="hp-fill player" id="player-hp"></div></div>
+          <p class="hp-text" id="player-hp-text"></p>
+        </div>
+
+        <div class="versus">VS</div>
+
+        <div class="fighter" id="enemy-slot">
+          <h3>Enemy</h3>
+          <div class="fighter-card" id="enemy-card"></div>
+          <div class="hp-bar"><div class="hp-fill enemy" id="enemy-hp"></div></div>
+          <p class="hp-text" id="enemy-hp-text"></p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="attack-btn" class="btn">⚔ Attack</button>
+        <button id="restart-btn" class="btn btn-ghost hidden">↺ Play again</button>
+      </div>
+
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
