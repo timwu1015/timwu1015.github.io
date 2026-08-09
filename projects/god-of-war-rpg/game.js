@@ -67,14 +67,26 @@ function onPick(id) {
   }
 }
 
+// Strip leftover combat-animation classes (fallen/struck/lunge) from a slot
+// before rendering a new fighter into it — they live on the container, so
+// replacing innerHTML alone doesn't clear them.
+function clearFx(cardEl) {
+  cardEl.classList.remove("fallen", "struck", "lunge-right", "lunge-left");
+}
+
 function showBattle() {
   battleEl.classList.remove("hidden");
-  document.getElementById("player-card").innerHTML = cardHTML(player);
+  const playerCard = document.getElementById("player-card");
+  clearFx(playerCard);
+  playerCard.innerHTML = cardHTML(player);
+  clearFx(document.getElementById("enemy-card"));
   updateBars();
 }
 
 function renderBattle() {
-  document.getElementById("enemy-card").innerHTML = enemy ? cardHTML(enemy) : "<p>Awaiting challenger…</p>";
+  const enemyCard = document.getElementById("enemy-card");
+  clearFx(enemyCard);
+  enemyCard.innerHTML = enemy ? cardHTML(enemy) : "<p>Awaiting challenger…</p>";
   updateBars();
 }
 
