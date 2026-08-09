@@ -105,41 +105,89 @@ function log(msg, cls = "") {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function attack() {
-  if (!player || !enemy || gameOver) return;
+/* ---- Combat animation helpers ---- */
 
-  enemy.hp -= player.attack;
-  log(`You hit ${enemy.name} for ${player.attack} damage.`, "hit");
+let animating = false;
+
+// Attacker lunges toward the defender; on impact the defender shakes/flashes
+// and a floating damage number pops. onImpact fires at the hit moment.
+function strike(attackerCard, defenderCard, lungeCls, dmg, onImpact) {
+  attackerCard.classList.remove(lungeCls);
+  void attackerCard.offsetWidth; // restart the animation
+  attackerCard.classList.add(lungeCls);
+  setTimeout(() => {
+    defenderCard.classList.remove("struck");
+    void defenderCard.offsetWidth;
+    defenderCard.classList.add("struck");
+    spawnDmg(defenderCard, dmg);
+    onImpact();
+  }, 180);
+}
+
+function spawnDmg(card, amount) {
+  const el = document.createElement("div");
+  el.className = "dmg-float";
+  el.textContent = "-" + amount;
+  card.appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+function attack() {
+  if (!player || !enemy || gameOver || animating) return;
+  animating = true;
+  attackBtn.disabled = true;
+
+  const playerCard = document.getElementById("player-card");
+  const enemyCard = document.getElementById("enemy-card");
+
+  // --- your swing ---
+  const dmg = player.attack;
   player.attack += ATTACK_GROWTH;
+  enemy.hp -= dmg;
+  log(`You hit ${enemy.name} for ${dmg} damage.`, "hit");
+  strike(playerCard, enemyCard, "lunge-right", dmg, updateBars);
 
   if (enemy.hp <= 0) {
-    log(`${enemy.name} has fallen!`, "win");
-    defeatedIds.add(enemy.id);
-    defeated++;
-    enemy = null;
-    updateBars();
-
-    if (defeated === Object.keys(CHARACTERS).length - 1) {
-      endGame(true);
-    } else {
-      promptEl.textContent = "Choose your next enemy";
-      renderRoster();
-      renderBattle();
-    }
+    setTimeout(() => {
+      enemyCard.classList.add("fallen");
+      log(`${enemy.name} has fallen!`, "win");
+      setTimeout(finishEnemyDefeat, 700);
+    }, 250);
     return;
   }
 
-  // Enemy only counter-attacks if it survived your swing.
-  player.hp -= enemy.counter;
-  log(`${enemy.name} counters for ${enemy.counter} damage.`, "taken");
+  // --- enemy counter (only if it survived) ---
+  setTimeout(() => {
+    player.hp -= enemy.counter;
+    log(`${enemy.name} counters for ${enemy.counter} damage.`, "taken");
+    strike(enemyCard, playerCard, "lunge-left", enemy.counter, updateBars);
+    setTimeout(() => {
+      if (player.hp <= 0) {
+        playerCard.classList.add("fallen");
+        updateBars();
+        endGame(false);
+      }
+      animating = false;
+      attackBtn.disabled = gameOver;
+    }, 600);
+  }, 650);
+}
 
-  if (player.hp <= 0) {
-    updateBars();
-    endGame(false);
-    return;
-  }
-
+function finishEnemyDefeat() {
+  defeatedIds.add(enemy.id);
+  defeated++;
+  enemy = null;
   updateBars();
+
+  if (defeated === Object.keys(CHARACTERS).length - 1) {
+    endGame(true);
+  } else {
+    promptEl.textContent = "Choose your next enemy";
+    renderRoster();
+    renderBattle();
+  }
+  animating = false;
+  attackBtn.disabled = gameOver;
 }
 
 function endGame(won) {
@@ -160,6 +208,7 @@ function restart() {
   enemy = null;
   defeated = 0;
   gameOver = false;
+  animating = false;
   defeatedIds.clear();
   attackBtn.disabled = false;
   restartBtn.classList.add("hidden");
