@@ -20,24 +20,32 @@
       <div id="roster" class="card-row"></div>
     </section>
 
-    <!-- Battle arena -->
+    <!-- Battle arena: KOF-style stage -->
     <section id="battle-section" class="hidden">
-      <div class="fighters">
-        <div class="fighter" id="player-slot">
-          <h3>Your God</h3>
-          <div class="fighter-card" id="player-card"></div>
-          <div class="hp-bar"><div class="hp-fill player" id="player-hp"></div></div>
-          <p class="hp-text" id="player-hp-text"></p>
+      <div class="hud">
+        <div class="hud-side">
+          <div class="hud-name" id="player-name"></div>
+          <div class="hp-bar kof">
+            <div class="hp-ghost" id="player-ghost"></div>
+            <div class="hp-fill player" id="player-hp"></div>
+            <span class="hp-num" id="player-hp-text"></span>
+          </div>
         </div>
-
-        <div class="versus">VS</div>
-
-        <div class="fighter" id="enemy-slot">
-          <h3>Enemy</h3>
-          <div class="fighter-card" id="enemy-card"></div>
-          <div class="hp-bar"><div class="hp-fill enemy" id="enemy-hp"></div></div>
-          <p class="hp-text" id="enemy-hp-text"></p>
+        <div class="hud-center" id="round-label">ROUND 1</div>
+        <div class="hud-side">
+          <div class="hud-name right" id="enemy-name"></div>
+          <div class="hp-bar kof flip">
+            <div class="hp-ghost" id="enemy-ghost"></div>
+            <div class="hp-fill enemy" id="enemy-hp"></div>
+            <span class="hp-num" id="enemy-hp-text"></span>
+          </div>
         </div>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="fighter-sprite player-side" id="player-sprite"><img id="player-img" alt=""></div>
+        <div class="fighter-sprite enemy-side" id="enemy-sprite"><img id="enemy-img" alt=""></div>
+        <div class="announce hidden" id="announce"></div>
       </div>
 
       <div class="controls">
