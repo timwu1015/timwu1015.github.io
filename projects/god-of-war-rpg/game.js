@@ -3,10 +3,18 @@
    Original 2018 jQuery logic preserved: same stats, same turn-based rules. */
 
 const CHARACTERS = {
-  kratos: { name: "Kratos", img: "assets/kratos.jpg", hp: 180, attack: 7, counter: 25 },
-  atreus: { name: "Atreus", img: "assets/Atri.jpg", hp: 120, attack: 8, counter: 15 },
-  baldur: { name: "Baldur", img: "assets/Baldur.png", hp: 150, attack: 8, counter: 20 },
-  thor:   { name: "Thor",   img: "assets/Thor.jpg", hp: 100, attack: 14, counter: 5 },
+  kratos: { name: "Kratos", img: "assets/kratos-pixel.png", hp: 180, attack: 7, counter: 25, weapon: "axe" },
+  atreus: { name: "Atreus", img: "assets/atreus-pixel.png", hp: 120, attack: 8, counter: 15, weapon: "bow" },
+  baldur: { name: "Baldur", img: "assets/baldur-pixel.png", hp: 150, attack: 8, counter: 20, weapon: "fists" },
+  thor:   { name: "Thor",   img: "assets/thor-pixel.png", hp: 100, attack: 14, counter: 5, weapon: "hammer" },
+};
+
+// Per-fighter combat flavor, loosely following the actual games.
+const WEAPONS = {
+  axe:    { icon: "🪓", color: "#a8e0ff", verb: "hurls the Leviathan Axe" },
+  hammer: { icon: "🔨", color: "#ffe23e", verb: "throws Mjölnir" },
+  bow:    { icon: "🏹", color: "#d8c07a", verb: "fires a volley of arrows" },
+  fists:  { icon: "👊", color: "#ff8c4a", verb: "charges in with a furious combo" },
 };
 
 const ATTACK_GROWTH = 8; // your attack grows by this much after every swing
@@ -190,27 +198,132 @@ function log(msg, cls = "") {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function impactFx(defenderSprite, dmg) {
-  // pushed away from the blow
-  const dir = defenderSprite === playerSprite ? -1 : 1;
+/* ---- Weapon effects ---- */
+
+// Center-ish point of a sprite in stage coordinates.
+function stagePos(el) {
+  const r = el.getBoundingClientRect();
+  const s = stageEl.getBoundingClientRect();
+  return { x: r.left - s.left + r.width / 2, y: r.top - s.top + r.height * 0.35 };
+}
+
+function starBurst(x, y, color) {
+  const star = document.createElement("div");
+  star.className = "impact";
+  star.style.background = `radial-gradient(circle, #fff 0%, ${color} 42%, transparent 72%)`;
+  star.style.left = `${x - 45}px`;
+  star.style.top = `${y - 45}px`;
+  stageEl.appendChild(star);
+  setTimeout(() => star.remove(), 420);
+}
+
+// Chunky pixel particles flying out of the impact point.
+function spawnParticles(x, y, color, n = 10) {
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.background = color;
+    p.style.left = `${x}px`;
+    p.style.top = `${y}px`;
+    stageEl.appendChild(p);
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 80;
+    const a = p.animate(
+      [{ transform: "translate(0,0)", opacity: 1 },
+       { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist - 34}px)`, opacity: 0 }],
+      { duration: 420 + Math.random() * 320, easing: "cubic-bezier(.1,.7,.3,1)" }
+    );
+    a.finished.then(() => p.remove()).catch(() => {});
+  }
+}
+
+function flinch(defenderSprite) {
   defenderSprite.classList.remove("struck");
   void defenderSprite.offsetWidth;
   defenderSprite.classList.add("struck");
+}
+
+// Thrown weapon (axe / hammer): spins across the stage, then returns to its owner.
+async function throwWeapon(icon, from, to) {
+  const w = document.createElement("div");
+  w.className = "projectile";
+  const span = document.createElement("span");
+  span.textContent = icon;
+  w.appendChild(span);
+  const start = stagePos(from);
+  const end = stagePos(to);
+  w.style.left = `${start.x - 24}px`;
+  w.style.top = `${start.y - 24}px`;
+  stageEl.appendChild(w);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const fly = w.animate(
+    [{ transform: "translate(0,0)" }, { transform: `translate(${dx}px, ${dy}px)` }],
+    { duration: 300, easing: "ease-in", fill: "forwards" }
+  );
+  await fly.finished;
+  return { w, dx, dy };
+}
+
+async function weaponReturns(proj) {
+  const back = proj.w.animate(
+    [{ transform: `translate(${proj.dx}px, ${proj.dy}px)` }, { transform: "translate(0,0)" }],
+    { duration: 360, easing: "ease-out", fill: "forwards" }
+  );
+  await back.finished;
+  proj.w.remove();
+}
+
+// Mjölnir calls down a bolt on the target.
+async function lightningStrike(target) {
+  const pos = stagePos(target);
+  const bolt = document.createElement("div");
+  bolt.className = "bolt";
+  bolt.style.left = `${pos.x - 28}px`;
+  stageEl.appendChild(bolt);
+  const flash = document.createElement("div");
+  flash.className = "flash";
+  stageEl.appendChild(flash);
+  await sleep(300);
+  bolt.remove();
+  flash.remove();
+}
+
+// Three quick arrows; only the last one lands for full effect.
+async function arrowVolley(from, to, onHit) {
+  const start = stagePos(from);
+  const end = stagePos(to);
+  const leftward = end.x < start.x;
+  for (let i = 0; i < 3; i++) {
+    const a = document.createElement("div");
+    a.className = "arrow" + (leftward ? " left" : "");
+    a.style.left = `${start.x}px`;
+    a.style.top = `${start.y + (i - 1) * 12}px`;
+    stageEl.appendChild(a);
+    const fly = a.animate(
+      [{ transform: "translateX(0)" }, { transform: `translateX(${end.x - start.x}px)` }],
+      { duration: 150, easing: "linear", fill: "forwards" }
+    );
+    await fly.finished;
+    a.remove();
+    onHit(i === 2);
+    await sleep(90);
+  }
+}
+
+function impactFx(defenderSprite, dmg, color = "#ffd23e") {
+  // pushed away from the blow
+  const dir = defenderSprite === playerSprite ? -1 : 1;
+  flinch(defenderSprite);
   const recoil = defenderSprite.animate(
     [{ transform: "translateX(0)" }, { transform: `translateX(${28 * dir}px)` }, { transform: "translateX(0)" }],
     { duration: 380, easing: "ease-out" }
   );
   recoil.finished.then(() => recoil.cancel()).catch(() => {});
 
-  // impact star near the point of contact
-  const r = defenderSprite.getBoundingClientRect();
-  const s = stageEl.getBoundingClientRect();
-  const star = document.createElement("div");
-  star.className = "impact";
-  star.style.left = `${r.left - s.left + r.width / 2 - 45 - 34 * dir}px`;
-  star.style.top = `${r.top - s.top + r.height * 0.28}px`;
-  stageEl.appendChild(star);
-  setTimeout(() => star.remove(), 420);
+  const pos = stagePos(defenderSprite);
+  starBurst(pos.x - 20 * dir, pos.y, color);
+  spawnParticles(pos.x, pos.y, color, 12);
 
   // screen shake
   stageEl.classList.remove("shaking");
@@ -227,30 +340,47 @@ function impactFx(defenderSprite, dmg) {
   updateBars();
 }
 
-// Attacker dashes across the stage, lands the hit, returns home.
-async function strike(attackerSprite, defenderSprite, dmg) {
-  const dir = attackerSprite === playerSprite ? 1 : -1;
-  const distance = stageEl.clientWidth * 0.6 * dir;
+// Full per-weapon attack sequence.
+async function performAttack(attackerSprite, defenderSprite, fighter, dmg) {
+  const w = WEAPONS[fighter.weapon];
   attackerSprite.style.zIndex = 3;
 
-  const dashOut = attackerSprite.animate(
-    [{ transform: "translateX(0)" }, { transform: `translateX(${distance}px) rotate(${3 * dir}deg)` }],
-    { duration: 210, easing: "cubic-bezier(.2,.8,.3,1)", fill: "forwards" }
-  );
-  await dashOut.finished;
+  if (fighter.weapon === "fists") {
+    // melee: dash in, two-hit combo, dash back
+    const dir = attackerSprite === playerSprite ? 1 : -1;
+    const distance = stageEl.clientWidth * 0.6 * dir;
+    const out = attackerSprite.animate(
+      [{ transform: "translateX(0)" }, { transform: `translateX(${distance}px) rotate(${3 * dir}deg)` }],
+      { duration: 200, easing: "cubic-bezier(.2,.8,.3,1)", fill: "forwards" }
+    );
+    await out.finished;
+    impactFx(defenderSprite, dmg, w.color);
+    await sleep(170);
+    flinch(defenderSprite);
+    starBurst(stagePos(defenderSprite).x, stagePos(defenderSprite).y - 20, w.color);
+    spawnParticles(stagePos(defenderSprite).x, stagePos(defenderSprite).y - 20, w.color, 7);
+    await sleep(230);
+    const back = attackerSprite.animate(
+      [{ transform: `translateX(${distance}px) rotate(${3 * dir}deg)` }, { transform: "translateX(0)" }],
+      { duration: 240, easing: "ease-in", fill: "forwards" }
+    );
+    await back.finished;
+    out.cancel();
+    back.cancel();
+  } else if (fighter.weapon === "bow") {
+    await arrowVolley(attackerSprite, defenderSprite, (last) => {
+      if (last) impactFx(defenderSprite, dmg, w.color);
+      else flinch(defenderSprite);
+    });
+  } else {
+    // axe or hammer: thrown, elemental hit, boomerang return
+    const proj = await throwWeapon(w.icon, attackerSprite, defenderSprite);
+    if (fighter.weapon === "hammer") await lightningStrike(defenderSprite);
+    impactFx(defenderSprite, dmg, w.color);
+    await sleep(180);
+    await weaponReturns(proj);
+  }
 
-  impactFx(defenderSprite, dmg);
-  await sleep(180);
-
-  const dashBack = attackerSprite.animate(
-    [{ transform: `translateX(${distance}px) rotate(${3 * dir}deg)` }, { transform: "translateX(0)" }],
-    { duration: 260, easing: "ease-in", fill: "forwards" }
-  );
-  await dashBack.finished;
-
-  // release the held WAAPI frames so the CSS idle-bob resumes
-  dashOut.cancel();
-  dashBack.cancel();
   attackerSprite.style.zIndex = 2;
 }
 
@@ -272,8 +402,8 @@ async function attack() {
   const dmg = player.attack;
   player.attack += ATTACK_GROWTH;
   enemy.hp -= dmg;
-  log(`You hit ${enemy.name} for ${dmg} damage.`, "hit");
-  await strike(playerSprite, enemySprite, dmg);
+  log(`${player.name} ${WEAPONS[player.weapon].verb} — ${dmg} damage!`, "hit");
+  await performAttack(playerSprite, enemySprite, player, dmg);
 
   if (enemy.hp <= 0) {
     log(`${enemy.name} has fallen!`, "win");
@@ -283,10 +413,10 @@ async function attack() {
   }
 
   // --- enemy counter (only if it survived) ---
-  await sleep(280);
+  await sleep(300);
   player.hp -= enemy.counter;
-  log(`${enemy.name} counters for ${enemy.counter} damage.`, "taken");
-  await strike(enemySprite, playerSprite, enemy.counter);
+  log(`${enemy.name} ${WEAPONS[enemy.weapon].verb} — ${enemy.counter} damage!`, "taken");
+  await performAttack(enemySprite, playerSprite, enemy, enemy.counter);
 
   if (player.hp <= 0) {
     await ko(playerSprite, "player");
@@ -349,6 +479,8 @@ function restart() {
   announceEl.classList.add("hidden");
   clearFx(playerSprite);
   clearFx(enemySprite);
+  // sweep any in-flight weapon effects
+  stageEl.querySelectorAll(".projectile, .arrow, .bolt, .flash, .particle, .impact").forEach((e) => e.remove());
   logEl.innerHTML = "";
   promptEl.textContent = "Choose your god";
   renderRoster();
@@ -359,8 +491,12 @@ restartBtn.addEventListener("click", restart);
 
 renderRoster();
 
-// Test hook: open index.html#demo to jump straight into a staged fight.
-if (typeof location !== "undefined" && location.hash === "#demo") {
+// Test hook: #demo jumps into a staged fight; #demo-fight also auto-attacks.
+if (typeof location !== "undefined" && location.hash.startsWith("#demo")) {
   onPick("kratos");
-  onPick("atreus");
+  onPick("baldur");
+  if (location.hash === "#demo-fight") {
+    const timer = setInterval(() => { if (!attackBtn.disabled) attackBtn.click(); }, 400);
+    setTimeout(() => clearInterval(timer), 30000);
+  }
 }

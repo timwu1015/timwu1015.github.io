@@ -348,6 +348,98 @@ h2 {
   100% { transform: scaleX(-1) rotate(88deg) translateY(24%); opacity: 0.35; filter: grayscale(1); }
 }
 
+/* ---- Weapon projectiles & elemental FX ---- */
+
+.fighter-sprite img,
+.card img {
+  image-rendering: pixelated; /* keep the arcade sprites crisp */
+}
+
+.projectile {
+  position: absolute;
+  z-index: 5;
+  font-size: 44px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.55));
+}
+
+.projectile span {
+  display: inline-block;
+  animation: pj-spin 0.32s linear infinite;
+}
+
+@keyframes pj-spin {
+  to { transform: rotate(360deg); }
+}
+
+.arrow {
+  position: absolute;
+  width: 46px;
+  height: 4px;
+  background: linear-gradient(90deg, #8a6a3b, #d8c07a);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.arrow::after {
+  content: "";
+  position: absolute;
+  right: -9px;
+  top: -5px;
+  border-left: 11px solid #e8e3d3;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+}
+
+.arrow.left::after {
+  right: auto;
+  left: -9px;
+  border-left: none;
+  border-right: 11px solid #e8e3d3;
+}
+
+.bolt {
+  position: absolute;
+  top: 0;
+  width: 56px;
+  height: 72%;
+  background: linear-gradient(180deg, #ffffff, #ffe23e 55%, #ffb84a);
+  clip-path: polygon(48% 0, 74% 0, 55% 32%, 80% 32%, 36% 100%, 47% 56%, 26% 56%);
+  animation: bolt-flicker 0.3s steps(3) forwards;
+  z-index: 6;
+  pointer-events: none;
+}
+
+@keyframes bolt-flicker {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  45%  { opacity: 0.25; }
+  65%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 235, 0.75);
+  animation: flash-fade 0.3s forwards;
+  z-index: 5;
+  pointer-events: none;
+}
+
+@keyframes flash-fade {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  z-index: 5;
+  pointer-events: none;
+}
+
 .controls {
   text-align: center;
   margin: 28px 0 20px;
