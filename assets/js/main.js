@@ -30,3 +30,37 @@ if (fine) {
     });
   });
 }
+
+// Path: scroll-driven chapters — one job at a time, with progress rail
+const path = document.getElementById("path");
+const chapters = path.querySelectorAll(".chapter");
+const pathCount = document.getElementById("path-count");
+const railFill = document.getElementById("path-rail-fill");
+let currentChapter = 0;
+let pathRaf = null;
+
+const updatePath = () => {
+  pathRaf = null;
+  const rect = path.getBoundingClientRect();
+  const scrollable = path.offsetHeight - window.innerHeight;
+  const progress = Math.min(1, Math.max(0, -rect.top / scrollable));
+  const idx = Math.min(chapters.length - 1, Math.floor(progress * chapters.length));
+
+  railFill.style.transform = `scaleX(${progress})`;
+
+  if (idx !== currentChapter) {
+    chapters[currentChapter].classList.remove("active");
+    chapters[idx].classList.add("active");
+    currentChapter = idx;
+    pathCount.textContent =
+      String(idx + 1).padStart(2, "0") + " / " + String(chapters.length).padStart(2, "0");
+  }
+};
+
+const onScroll = () => {
+  if (!pathRaf) pathRaf = requestAnimationFrame(updatePath);
+};
+
+window.addEventListener("scroll", onScroll, { passive: true });
+window.addEventListener("resize", onScroll);
+updatePath();
